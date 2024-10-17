@@ -24,7 +24,10 @@ distance :: RoadMap -> City -> City -> Maybe Distance
 distance = undefined
 
 adjacent :: RoadMap -> City -> [(City,Distance)]
-adjacent = undefined
+adjacent [] _ = []
+adjacent ((rmcity, rmcity2, rmdistance):xs) city | rmcity == city && areAdjacent ((rmcity, rmcity2, rmdistance):xs) rmcity rmcity2 = (rmcity2, rmdistance): adjacent xs city
+                                                 | rmcity2 == city && areAdjacent ((rmcity, rmcity2, rmdistance):xs) rmcity rmcity2 = (rmcity, rmdistance): adjacent xs city 
+                                                 | otherwise = adjacent xs city
 
 pathDistance :: RoadMap -> Path -> Maybe Distance
 pathDistance = undefined
