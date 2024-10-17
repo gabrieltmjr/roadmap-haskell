@@ -16,7 +16,9 @@ cities :: RoadMap -> [City]
 cities = undefined -- modifiy this line to implement the solution, for each exercise not solved, leave the function definition like this
 
 areAdjacent :: RoadMap -> City -> City -> Bool
-areAdjacent = undefined
+areAdjacent [] _ _ = False
+areAdjacent ((rmcity,rmcity2,rmdistance):xs) city1 city2 | (rmcity == city1 && rmcity2 == city2) || (rmcity == city2 && rmcity2 == city1) = True
+                                                         | otherwise = areAdjacent xs city1 city2
 
 distance :: RoadMap -> City -> City -> Maybe Distance
 distance = undefined
