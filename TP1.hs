@@ -1,4 +1,4 @@
---import qualified Data.List
+import qualified Data.List
 --import qualified Data.Array
 --import qualified Data.Bits
 
@@ -12,8 +12,15 @@ type Distance = Int
 
 type RoadMap = [(City,City,Distance)]
 
+-- This function takes all the cities in the RoadMap (returned by cities') and removes all duplicates.
 cities :: RoadMap -> [City]
-cities = undefined -- modifiy this line to implement the solution, for each exercise not solved, leave the function definition like this
+cities [] = []
+cities roadMap = map head (Data.List.group (Data.List.sort (cities' roadMap)))
+
+-- This auxiliary function creates a List with every city in every road in the RoadMap, including duplicates.
+cities' :: RoadMap -> [City]
+cities' [] = []
+cities' ((city1, city2, _):xs) = [city1] ++ [city2] ++ cities [(city1_, city2_, distance) | (city1_, city2_, distance)<-xs]
 
 areAdjacent :: RoadMap -> City -> City -> Bool
 areAdjacent [] _ _ = False
