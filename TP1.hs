@@ -12,22 +12,6 @@ type Distance = Int
 
 type RoadMap = [(City,City,Distance)]
 
-myminimum :: Ord a => [a] -> a
-myminimum [x] = x
-myminimum (x:xs) | x > myminimum xs = x
-                 | otherwise = myminimum xs
-
-mydelete :: Eq a => a -> [a] -> [a]
-mydelete numb [] = []
-mydelete numb (x:xs) | numb == x = xs
-                     | otherwise = x : mydelete numb xs 
-
-ssort :: Ord a => [a] -> [a]
-ssort [] = []
-ssort (x:xs) = myminimum normallist : ssort reducedlist
-                where normallist = x:xs
-                      reducedlist = mydelete (myminimum normallist) normallist 
-
 -- This function takes all the cities in the RoadMap (returned by cities') and removes all duplicates.
 cities :: RoadMap -> [City]
 cities [] = []
@@ -57,20 +41,18 @@ adjacent ((rmcity, rmcity2, rmdistance):xs) city | rmcity == city && areAdjacent
 pathDistance :: RoadMap -> Path -> Maybe Distance
 pathDistance = undefined
 
--- check vertice with highest degree
+-- This auxiliary function returns how many connections a city has in the format (City, Number of Connections), by checking the city's adjacency
 connectionsOfCity :: RoadMap -> City -> (String,Int)
 connectionsOfCity roadmap city = (city, length (adjacent roadmap city))
 
--- then check all vertices that have highest degree
-
+-- This auxiliary function returns all connections of each city in the RoadMap in the format of a list of (City, Number of Connections), sorted from highest to lowest
 connectionsOfCities :: RoadMap -> [(String,Int)]
-connectionsOfCities [] = []
-connectionsOfCities ((rmcity, rmcity2, rmdistance):xs) = ssort (connectionsOfCity ((rmcity, rmcity2, rmdistance):xs) rmcity2: connectionsOfCities xs)
-
-
+connectionsOfCities roadmap = Data.List.sortBy (\(_, conn1) (_, conn2) -> compare conn2 conn1) [ connectionsOfCity roadmap auxcity | auxcity <- auxcities]
+                              where auxcities = cities roadmap
 
 rome :: RoadMap -> [City]
-rome [] = []
+rome roadmap = [city | (city, conn) <- connectionsOfCities roadmap, conn == highest]
+               where (_, highest) = head (connectionsOfCities roadmap)
 
 isStronglyConnected :: RoadMap -> Bool
 isStronglyConnected = undefined
