@@ -1,4 +1,4 @@
---import qualified Data.List
+import qualified Data.List
 --import qualified Data.Array
 --import qualified Data.Bits
 
@@ -28,8 +28,15 @@ ssort (x:xs) = myminimum normallist : ssort reducedlist
                 where normallist = x:xs
                       reducedlist = mydelete (myminimum normallist) normallist 
 
+-- This function takes all the cities in the RoadMap (returned by cities') and removes all duplicates.
 cities :: RoadMap -> [City]
-cities = undefined -- modifiy this line to implement the solution, for each exercise not solved, leave the function definition like this
+cities [] = []
+cities roadMap = map head (Data.List.group (Data.List.sort (cities' roadMap)))
+
+-- This auxiliary function creates a List with every city in every road in the RoadMap, including duplicates.
+cities' :: RoadMap -> [City]
+cities' [] = []
+cities' ((city1, city2, _):xs) = [city1] ++ [city2] ++ cities [(city1_, city2_, distance) | (city1_, city2_, distance)<-xs]
 
 areAdjacent :: RoadMap -> City -> City -> Bool
 areAdjacent [] _ _ = False
@@ -37,7 +44,9 @@ areAdjacent ((rmcity,rmcity2,rmdistance):xs) city1 city2 | (rmcity == city1 && r
                                                          | otherwise = areAdjacent xs city1 city2
 
 distance :: RoadMap -> City -> City -> Maybe Distance
-distance = undefined
+distance ((c1, c2, d):xs) city1 city2 | c1 == city1 && c2 == city2 = Just d
+                                      | otherwise = distance xs city1 city2
+distance [] city1 city2 = Nothing
 
 adjacent :: RoadMap -> City -> [(City,Distance)]
 adjacent [] _ = []
