@@ -12,6 +12,22 @@ type Distance = Int
 
 type RoadMap = [(City,City,Distance)]
 
+myminimum :: Ord a => [a] -> a
+myminimum [x] = x
+myminimum (x:xs) | x > myminimum xs = x
+                 | otherwise = myminimum xs
+
+mydelete :: Eq a => a -> [a] -> [a]
+mydelete numb [] = []
+mydelete numb (x:xs) | numb == x = xs
+                     | otherwise = x : mydelete numb xs 
+
+ssort :: Ord a => [a] -> [a]
+ssort [] = []
+ssort (x:xs) = myminimum normallist : ssort reducedlist
+                where normallist = x:xs
+                      reducedlist = mydelete (myminimum normallist) normallist 
+
 cities :: RoadMap -> [City]
 cities = undefined -- modifiy this line to implement the solution, for each exercise not solved, leave the function definition like this
 
@@ -32,8 +48,20 @@ adjacent ((rmcity, rmcity2, rmdistance):xs) city | rmcity == city && areAdjacent
 pathDistance :: RoadMap -> Path -> Maybe Distance
 pathDistance = undefined
 
+-- check vertice with highest degree
+connectionsOfCity :: RoadMap -> City -> (String,Int)
+connectionsOfCity roadmap city = (city, length (adjacent roadmap city))
+
+-- then check all vertices that have highest degree
+
+connectionsOfCities :: RoadMap -> [(String,Int)]
+connectionsOfCities [] = []
+connectionsOfCities ((rmcity, rmcity2, rmdistance):xs) = ssort (connectionsOfCity ((rmcity, rmcity2, rmdistance):xs) rmcity2: connectionsOfCities xs)
+
+
+
 rome :: RoadMap -> [City]
-rome = undefined
+rome [] = []
 
 isStronglyConnected :: RoadMap -> Bool
 isStronglyConnected = undefined
