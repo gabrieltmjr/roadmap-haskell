@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Eta reduce" #-}
 import qualified Data.List
 --import qualified Data.Array
 --import qualified Data.Bits
@@ -11,6 +13,26 @@ type Path = [City]
 type Distance = Int
 
 type RoadMap = [(City,City,Distance)]
+
+type Visited = Bool
+
+{-
+City - Source node
+[(City, Distance)] - List of nodes connected to
+Distance - Distance to arrive at node
+Visited - Bool that represents if node was visited or not
+
+-}
+type DijkstraNode = (City, [(City, Distance)], Distance)
+type RoadMapDijkstra = [DijkstraNode]
+
+{-
+
+-}
+type RoadMapDijkstraQueue = [(City, Distance)]
+
+inf :: Int
+inf = 1000000
 
 -- This function takes all the cities in the RoadMap (returned by cities') and removes all duplicates.
 cities :: RoadMap -> [City]
@@ -35,7 +57,7 @@ distance [] city1 city2 = Nothing
 adjacent :: RoadMap -> City -> [(City,Distance)]
 adjacent [] _ = []
 adjacent ((rmcity, rmcity2, rmdistance):xs) city | rmcity == city && areAdjacent ((rmcity, rmcity2, rmdistance):xs) rmcity rmcity2 = (rmcity2, rmdistance): adjacent xs city
-                                                 | rmcity2 == city && areAdjacent ((rmcity, rmcity2, rmdistance):xs) rmcity rmcity2 = (rmcity, rmdistance): adjacent xs city 
+                                                 | rmcity2 == city && areAdjacent ((rmcity, rmcity2, rmdistance):xs) rmcity rmcity2 = (rmcity, rmdistance): adjacent xs city
                                                  | otherwise = adjacent xs city
 
 pathDistance :: RoadMap -> Path -> Maybe Distance
@@ -56,6 +78,54 @@ rome roadmap = [city | (city, conn) <- connectionsOfCities roadmap, conn == high
 
 isStronglyConnected :: RoadMap -> Bool
 isStronglyConnected = undefined
+
+sourceToZero :: RoadMapDijkstra -> City -> RoadMapDijkstra
+sourceToZero [] _ = []
+sourceToZero ((city, destinations, distance):xs) source | city == source = (city, destinations, 0): sourceToZero xs source
+                                                                 | otherwise = (city, destinations, distance): sourceToZero xs source
+roadMapToRoadMapDijkstra :: RoadMap -> City -> RoadMapDijkstra
+roadMapToRoadMapDijkstra roadmap source = sourceToZero [(city, adjacent roadmap city, inf) | city <- cities roadmap] source
+
+getDistance :: RoadMapDijkstra -> City -> Distance
+getDistance roadmap city |  null distance = -1
+                         | otherwise = head distance
+    where distance = [rmdistance | (rmcity, rmdestinations, rmdistance) <- roadmap, city == rmcity]
+
+dijkstraQueue :: RoadMapDijkstra -> RoadMapDijkstraQueue
+dijkstraQueue [] = []
+dijkstraQueue ((city, destinations, distance):tail) = Data.List.filter (\(x,y) -> y /= -1) ((city, distance) : [(destCity, getDistance ((city, destinations, distance):tail) destCity ) |(destCity, _) <- destinations]) ++ dijkstraQueue tail 
+
+dijkstraFilteredQueue :: RoadMapDijkstraQueue -> RoadMapDijkstraQueue
+dijkstraFilteredQueue [] = []
+dijkstraFilteredQueue (x:xs) = x: dijkstraFilteredQueue (Data.List.filter (/= x)  xs)
+
+dijkstraQueueRemove :: RoadMapDijkstraQueue -> RoadMapDijkstraQueue
+dijkstraQueueRemove (head:tail) = tail
+
+
+dijkstraFilteredRoadMap :: RoadMapDijkstra -> RoadMapDijkstra
+dijkstraFilteredRoadMap [] = []
+dijkstraFilteredRoadMap ((city, destinations, distance):xs) = (city, destinations, distance): dijkstraFilteredRoadMap (Data.List.filter (\(c, _, _) -> c /= city ) xs)
+
+dijkstraDistanceDefine :: DijkstraNode -> RoadMapDijkstra -> RoadMapDijkstra
+dijkstraDistanceDefine (city, destinations, distance) 
+                       nodes = dijkstraFilteredRoadMap ([(toChangeCity, toChangeDestinations, distance + destDistance) 
+                       | (toChangeCity, toChangeDestinations, toChangeDistance) <- nodes, 
+                         (destCity, destDistance) <- destinations, 
+                          destCity == toChangeCity,
+                          (distance + destDistance) < toChangeDistance] ++ nodes)
+
+-- supposedly all separate parts are done! Now join everything and you have dijkstra working!
+
+-- Apply the Dijkstra algorithm to an auxiliary type RoadMapDijksta with the current city being visited, a List of cities that serve as queue
+dijkstra :: RoadMapDijkstra -> RoadMapDijkstraQueue -> RoadMapDijkstra
+dijkstra roadmap [] = roadmap -- if queue is empty
+dijkstra roadMapDijkstra ((queueCity, queueDistance):queueTail) = 
+                                                                 dijkstra (dijkstraDistanceDefine chosenFromQueue roadMapDijkstra) queueTail
+                                 where 
+                                    chosenFromQueue = head (Data.List.filter (\(city, destinations, distance) -> city == queueCity) roadMapDijkstra)
+callDijkstra :: RoadMapDijkstra
+callDijkstra = dijkstra (roadMapToRoadMapDijkstra gTest1 "0") (dijkstraFilteredQueue (dijkstraQueue (roadMapToRoadMapDijkstra gTest1 "0")))
 
 shortestPath :: RoadMap -> City -> City -> [Path]
 shortestPath = undefined
