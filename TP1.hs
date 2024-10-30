@@ -20,10 +20,10 @@ type Visited = Bool
 City - Source node
 [(City, Distance)] - List of nodes connected to
 Distance - Distance to arrive at node
-Visited - Bool that represents if node was visited or not
+City - Previous Node
 
 -}
-type DijkstraNode = (City, [(City, Distance)], Distance)
+type DijkstraNode = (City, [(City, Distance)], Distance, City)
 type RoadMapDijkstra = [DijkstraNode]
 
 {-
@@ -33,6 +33,9 @@ type RoadMapDijkstraQueue = [(City, Distance)]
 
 inf :: Int
 inf = 1000000
+
+und :: City
+und = "undefined"
 
 -- This function takes all the cities in the RoadMap (returned by cities') and removes all duplicates.
 cities :: RoadMap -> [City]
@@ -81,19 +84,19 @@ isStronglyConnected = undefined
 
 sourceToZero :: RoadMapDijkstra -> City -> RoadMapDijkstra
 sourceToZero [] _ = []
-sourceToZero ((city, destinations, distance):xs) source | city == source = (city, destinations, 0): sourceToZero xs source
-                                                                 | otherwise = (city, destinations, distance): sourceToZero xs source
+sourceToZero ((city, destinations, distance, previous):xs) source | city == source = (city, destinations, 0, und): sourceToZero xs source
+                                                                 | otherwise = (city, destinations, distance, und): sourceToZero xs source
 roadMapToRoadMapDijkstra :: RoadMap -> City -> RoadMapDijkstra
-roadMapToRoadMapDijkstra roadmap source = sourceToZero [(city, adjacent roadmap city, inf) | city <- cities roadmap] source
+roadMapToRoadMapDijkstra roadmap source = sourceToZero [(city, adjacent roadmap city, inf, und) | city <- cities roadmap] source
 
 getDistance :: RoadMapDijkstra -> City -> Distance
 getDistance roadmap city |  null distance = -1
                          | otherwise = head distance
-    where distance = [rmdistance | (rmcity, rmdestinations, rmdistance) <- roadmap, city == rmcity]
+    where distance = [rmdistance | (rmcity, _, rmdistance, _) <- roadmap, city == rmcity]
 
 dijkstraQueue :: RoadMapDijkstra -> RoadMapDijkstraQueue
 dijkstraQueue [] = []
-dijkstraQueue ((city, destinations, distance):tail) = Data.List.filter (\(x,y) -> y /= -1) ((city, distance) : [(destCity, getDistance ((city, destinations, distance):tail) destCity ) |(destCity, _) <- destinations]) ++ dijkstraQueue tail 
+dijkstraQueue ((city, destinations, distance, previous):tail) = Data.List.filter (\(x,y) -> y /= -1) ((city, distance) : [(destCity, getDistance ((city, destinations, distance, previous):tail) destCity ) |(destCity, _) <- destinations]) ++ dijkstraQueue tail
 
 dijkstraFilteredQueue :: RoadMapDijkstraQueue -> RoadMapDijkstraQueue
 dijkstraFilteredQueue [] = []
@@ -105,30 +108,63 @@ dijkstraQueueRemove (head:tail) = tail
 
 dijkstraFilteredRoadMap :: RoadMapDijkstra -> RoadMapDijkstra
 dijkstraFilteredRoadMap [] = []
-dijkstraFilteredRoadMap ((city, destinations, distance):xs) = (city, destinations, distance): dijkstraFilteredRoadMap (Data.List.filter (\(c, _, _) -> c /= city ) xs)
+dijkstraFilteredRoadMap ((city, destinations, distance, previous):xs) = 
+                      (city, destinations, distance, previous): dijkstraFilteredRoadMap (Data.List.filter (\(nextCity, _, _, _) -> nextCity /= city) xs)
 
 dijkstraDistanceDefine :: DijkstraNode -> RoadMapDijkstra -> RoadMapDijkstra
-dijkstraDistanceDefine (city, destinations, distance) 
-                       nodes = dijkstraFilteredRoadMap ([(toChangeCity, toChangeDestinations, distance + destDistance) 
-                       | (toChangeCity, toChangeDestinations, toChangeDistance) <- nodes, 
-                         (destCity, destDistance) <- destinations, 
+dijkstraDistanceDefine (city, destinations, distance, previous)
+                       nodes = dijkstraFilteredRoadMap ([(toChangeCity, toChangeDestinations, distance + destDistance, city)
+                       | (toChangeCity, toChangeDestinations, toChangeDistance, toChangePrevious) <- nodes,
+                         (destCity, destDistance) <- destinations,
                           destCity == toChangeCity,
-                          (distance + destDistance) < toChangeDistance] ++ nodes)
+                          (distance + destDistance) < toChangeDistance, toChangeDistance == inf] ++ nodes)
 
--- supposedly all separate parts are done! Now join everything and you have dijkstra working!
+
+dijkstraFindShortestPathDistance :: RoadMapDijkstra -> City -> Distance
+dijkstraFindShortestPathDistance roadmap destination = let matchingNodes = filter (\(c1, _, _, _) -> c1 == destination) roadmap
+    in case matchingNodes of
+        [] -> error "Destination not found in the roadmap"  -- Or handle in some other way
+        _  -> let (city, _, distance, _) = Data.List.minimumBy (\(_, _, dist1, _) (_, _, dist2, _) -> compare dist1 dist2) matchingNodes
+              in distance
+
+
+updateQueue :: RoadMapDijkstra -> RoadMapDijkstraQueue -> RoadMapDijkstraQueue
+updateQueue _ [] = []
+updateQueue [] queue = queue  -- Se não houver mais elementos no RoadMap, retornamos a fila original
+updateQueue ((city, destinations, distance, previous):restOfRoadMap) queue =
+            updateQueue restOfRoadMap (updateCityInQueue (city, distance) queue)
+
+sortedQueue :: RoadMapDijkstra -> RoadMapDijkstraQueue -> RoadMapDijkstraQueue
+sortedQueue roadMapDijkstra queue = Data.List.sortBy (\(_, distance1) (_, distance2) -> compare distance1 distance2) (updateQueue roadMapDijkstra queue)
+
+-- Função auxiliar para atualizar a distância de uma cidade específica na fila
+updateCityInQueue :: (String, Int) -> RoadMapDijkstraQueue -> RoadMapDijkstraQueue
+updateCityInQueue (city, newDistance) [] = []
+updateCityInQueue (city, newDistance) ((queueCity, queueDistance) : queueTail)
+    | city == queueCity = (queueCity, newDistance) : queueTail  -- Atualiza a cidade
+    | otherwise = (queueCity, queueDistance) : updateCityInQueue (city, newDistance) queueTail
 
 -- Apply the Dijkstra algorithm to an auxiliary type RoadMapDijksta with the current city being visited, a List of cities that serve as queue
 dijkstra :: RoadMapDijkstra -> RoadMapDijkstraQueue -> RoadMapDijkstra
 dijkstra roadmap [] = roadmap -- if queue is empty
-dijkstra roadMapDijkstra ((queueCity, queueDistance):queueTail) = 
-                                                                 dijkstra (dijkstraDistanceDefine chosenFromQueue roadMapDijkstra) queueTail
-                                 where 
-                                    chosenFromQueue = head (Data.List.filter (\(city, destinations, distance) -> city == queueCity) roadMapDijkstra)
-callDijkstra :: RoadMapDijkstra
-callDijkstra = dijkstra (roadMapToRoadMapDijkstra gTest1 "0") (dijkstraFilteredQueue (dijkstraQueue (roadMapToRoadMapDijkstra gTest1 "0")))
+dijkstra roadMapDijkstra ((queueCity, queueDistance):queueTail) =
+                                                                dijkstra (dijkstraDistanceDefine chosenFromQueue roadMapDijkstra) (sortedQueue (dijkstraDistanceDefine chosenFromQueue roadMapDijkstra) queueTail)
+                                 where
+                                    chosenFromQueue = head (Data.List.filter (\(city, _, _, _) -> city == queueCity) roadMapDijkstra)
+
+roadMapDijkstraToPath :: RoadMapDijkstra -> City -> City -> Path
+roadMapDijkstraToPath [(city, _, _, "undefined")] _ _ = [city]
+roadMapDijkstraToPath ((city, destinations, distance, previous):restOfRoadMap) source destination | city == destination = city : roadMapDijkstraToPath restOfRoadMap source previous
+                                                                                                   | otherwise = roadMapDijkstraToPath restOfRoadMap source destination
+
+roadMapDijkstraToPaths :: RoadMapDijkstra -> City -> City -> [Path]
+roadMapDijkstraToPaths roadmap source destination = [ roadMapDijkstraToPath roadmap source destination | (city, _, distance, _) <- roadmap, city == destination && distance == dijkstraFindShortestPathDistance roadmap destination]
+
+callDijkstra :: City -> RoadMap -> RoadMapDijkstra
+callDijkstra source roadmap = dijkstra (roadMapToRoadMapDijkstra roadmap source) (dijkstraFilteredQueue (dijkstraQueue (roadMapToRoadMapDijkstra roadmap source)))
 
 shortestPath :: RoadMap -> City -> City -> [Path]
-shortestPath = undefined
+shortestPath roadmap source destination = roadMapDijkstraToPaths (callDijkstra source roadmap) source destination
 
 travelSales :: RoadMap -> Path
 travelSales = undefined
@@ -145,3 +181,9 @@ gTest2 = [("0","1",10),("0","2",15),("0","3",20),("1","2",35),("1","3",25),("2",
 
 gTest3 :: RoadMap -- unconnected graph
 gTest3 = [("0","1",4),("2","3",2)]
+
+gTest4 :: RoadMap -- graph with 3 different shortest paths with same distance
+gTest4 = [("A", "B", 5), ("A", "C", 2), ("C", "D", 3),  -- Path A-C-D with distance 5
+          ("B", "D", 5),                                  -- Path A-B-D with distance 5
+          ("A", "E", 1), ("E", "F", 4), ("F", "D", 4),    -- Path A-E-F-D with distance 5
+          ("D", "G", 2), ("F", "G", 3)]
