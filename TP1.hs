@@ -117,7 +117,7 @@ dijkstraDistanceDefine (city, destinations, distance, previous)
                        | (toChangeCity, toChangeDestinations, toChangeDistance, toChangePrevious) <- nodes,
                          (destCity, destDistance) <- destinations,
                           destCity == toChangeCity,
-                          (distance + destDistance) < toChangeDistance, toChangeDistance == inf] ++ nodes)
+                          (distance + destDistance) < toChangeDistance] ++ nodes)
 
 
 dijkstraFindShortestPathDistance :: RoadMapDijkstra -> City -> Distance
@@ -164,7 +164,7 @@ callDijkstra :: City -> RoadMap -> RoadMapDijkstra
 callDijkstra source roadmap = dijkstra (roadMapToRoadMapDijkstra roadmap source) (dijkstraFilteredQueue (dijkstraQueue (roadMapToRoadMapDijkstra roadmap source)))
 
 shortestPath :: RoadMap -> City -> City -> [Path]
-shortestPath roadmap source destination = roadMapDijkstraToPaths (callDijkstra source roadmap) source destination
+shortestPath roadmap source destination = roadMapDijkstraToPaths (callDijkstra source roadmap) source destination -- only gets one shortest path
 
 travelSales :: RoadMap -> Path
 travelSales = undefined
