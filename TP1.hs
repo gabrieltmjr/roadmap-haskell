@@ -31,6 +31,23 @@ type RoadMapDijkstra = [DijkstraNode]
 -- List that contains the cities to be visited and their current queue value
 type RoadMapDijkstraQueue = [(City, Distance)]
 
+-- Boolean value to represent if node was visited or not
+type Visited = Bool
+
+{-
+TSPNode - type created to calculate the TSP
+
+City - Source node
+[(City, Distance)] - List of nodes connected to
+Distance - Distance to arrive at node
+City - Previous Node
+
+-}
+type TSPNode = (City, [(City, Distance)], Distance, City, Visited)
+
+-- List of TSP Nodes that compose the RoadMap in a format to calculate the TSP
+type RoadMapTSP = [TSPNode]
+
 -- Represents an infinite value used in the implementation of Dijkstra's Algorithm
 inf :: Int
 inf = 1000000
@@ -151,7 +168,7 @@ updateDistanceInQueue (city, newDistance) ((queueCity, queueDistance) : queueTai
 -- Apply the Dijkstra algorithm to an auxiliary type RoadMapDijksta with the current city being visited, a List of cities that serve as queue
 dijkstra :: RoadMapDijkstra -> RoadMapDijkstraQueue -> RoadMapDijkstra
 dijkstra roadmap [] = roadmap -- if queue is empty
-dijkstra roadMapDijkstra ((queueCity, queueDistance):queueTail) = dijkstra (calculateShortestDistance chosenFromQueue roadMapDijkstra) 
+dijkstra roadMapDijkstra ((queueCity, queueDistance):queueTail) = dijkstra (calculateShortestDistance chosenFromQueue roadMapDijkstra)
                                                                         (sortedQueue (calculateShortestDistance chosenFromQueue roadMapDijkstra) queueTail)
                                                                     where
                                                                     chosenFromQueue = head (Data.List.filter (\(city, _, _, _) -> city == queueCity) roadMapDijkstra)
@@ -159,14 +176,14 @@ dijkstra roadMapDijkstra ((queueCity, queueDistance):queueTail) = dijkstra (calc
 -- Gets the path calculated with Dijkstra from source to destination 
 roadMapDijkstraToPath :: RoadMapDijkstra -> City -> City -> Path
 roadMapDijkstraToPath [(city, _, _, "undefined")] _ _ = [city]
-roadMapDijkstraToPath ((city, destinations, distance, previous):restOfRoadMap) source destination 
+roadMapDijkstraToPath ((city, destinations, distance, previous):restOfRoadMap) source destination
                                                                             | city == destination = city : roadMapDijkstraToPath restOfRoadMap source previous
                                                                             | otherwise = roadMapDijkstraToPath restOfRoadMap source destination
 -- Gets the paths calculated with Dijkstra from source to destination 
 roadMapDijkstraToPaths :: RoadMapDijkstra -> City -> City -> [Path]
-roadMapDijkstraToPaths roadmap source destination = [ roadMapDijkstraToPath roadmap source destination 
+roadMapDijkstraToPaths roadmap source destination = [ roadMapDijkstraToPath roadmap source destination
                                                     | (city, _, distance, _) <- roadmap,
-                                                      city == destination && 
+                                                      city == destination &&
                                                       distance == getShortestPathDistance roadmap destination]
 
 -- Auxiliary function to call the dijkstra path with the necessary function calls
@@ -176,6 +193,33 @@ callDijkstra source roadmap = dijkstra (roadMapToRoadMapDijkstra roadmap source)
 -- Computes the shortest path connecting the two cities given as input. (supposed to compute more than one, but it's not implemented)
 shortestPath :: RoadMap -> City -> City -> [Path]
 shortestPath roadmap source destination = roadMapDijkstraToPaths (callDijkstra source roadmap) source destination
+
+-- Sets the source node with 0 distance
+tspSourceToZero :: RoadMapTSP -> City -> RoadMapTSP
+tspSourceToZero [] _ = []
+tspSourceToZero ((city, destinations, distance, previous, visited):xs) source | city == source = (city, destinations, 0, und, visited): tspSourceToZero xs source
+                                                                 | otherwise = (city, destinations, distance, und, visited): tspSourceToZero xs source
+
+-- Transforms a RoadMap to RoadMapTSP and sets the source node to 0
+roadMapToRoadMapTSP :: RoadMap -> City -> RoadMapTSP
+roadMapToRoadMapTSP roadmap source = tspSourceToZero [(city, adjacent roadmap city, inf, und, False) | city <- cities roadmap] source
+
+updateTSPNode :: RoadMapTSP -> City -> (City, Distance) -> RoadMapTSP
+updateTSPNode [] _ _ = []
+updateTSPNode ((rmCity, rmAdjacentNodes, rmDistance, rmPrevious, rmVisited):rest) sourceCity
+              (destinationCity, destinationDistance) | rmCity == destinationCity = (rmCity,rmAdjacentNodes ,rmDistance + destinationDistance,sourceCity,rmVisited):rest
+                                                                 | otherwise = updateTSPNode ((rmCity, rmAdjacentNodes, rmDistance, rmPrevious, rmVisited):rest) sourceCity (destinationCity, destinationDistance)
+
+tspCalculateDistance :: RoadMapTSP -> TSPNode -> Int -> RoadMapTSP
+tspCalculateDistance roadMapTSP (city, adjacentNodes, distance, previous, visited) size | not visited = updateTSPNode roadMapTSP city (minCity, minDistance)
+                                where (minCity, minDistance) = Data.List.minimumBy  (\(_, dist1) (__, dist2) -> compare dist1 dist2) adjacentNodes
+
+tspCount :: RoadMapTSP -> Int
+tspCount tail = foldr (\head -> (+) 1) 0 tail
+
+{-tsp :: RoadMapTSP -> Int -> RoadMapTSP
+tsp roadmapTSP count | count == tspCount roadmapTSP = []
+                     | otherwise = -}
 
 travelSales :: RoadMap -> Path
 travelSales = undefined
@@ -198,3 +242,6 @@ gTest4 = [("A", "B", 5), ("A", "C", 2), ("C", "D", 3),  -- Path A-C-D with dista
           ("B", "D", 5),                                  -- Path A-B-D with distance 5
           ("A", "E", 1), ("E", "F", 4), ("F", "D", 4),    -- Path A-E-F-D with distance 5
           ("D", "G", 2), ("F", "G", 3)]
+
+gTestToze :: RoadMap
+gTestToze = [("0","1",10), ("1","2",7), ("2","0",9)]
