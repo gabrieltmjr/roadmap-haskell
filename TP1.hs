@@ -68,7 +68,12 @@ adjacent ((rmcity, rmcity2, rmdistance):xs) city | rmcity == city && areAdjacent
                                                  | otherwise = adjacent xs city
 
 pathDistance :: RoadMap -> Path -> Maybe Distance
-pathDistance = undefined
+pathDistance _ [] = Nothing
+pathDistance _ [_] = Just 0
+pathDistance roadmap (city1:city2:xs) = do
+    d <- distance roadmap city1 city2
+    dxs <- pathDistance roadmap (city2:xs)
+    return (d + dxs)
 
 -- This auxiliary function returns how many connections a city has in the format (City, Number of Connections), by checking the city's adjacency
 connectionsOfCity :: RoadMap -> City -> (String,Int)
