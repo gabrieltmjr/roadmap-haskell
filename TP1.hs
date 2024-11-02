@@ -89,8 +89,22 @@ rome :: RoadMap -> [City]
 rome roadmap = [city | (city, conn) <- connectionsOfCities roadmap, conn == highest]
                where (_, highest) = head (connectionsOfCities roadmap)
 
+-- Given a RoadMap and a City, returns a list of all adjacent cities to the given city.
+adjacent' :: RoadMap -> City -> [City]
+adjacent' [] _ = []
+adjacent' roadmap city = map fst (adjacent roadmap city)
+
+-- Returns a list of all the cities reachable from a single city. In the case of a strongly connected RoadMap, it returns a list of all the cities.
+connectedCities :: RoadMap -> City -> [City] -> [City]
+connectedCities roadmap city visitedCities | city `elem` visitedCities = visitedCities
+                                           | otherwise = let newVisitedCities = city : visitedCities
+                                                             adjacents = adjacent' roadmap city
+                                                        in foldl (flip (connectedCities roadmap)) newVisitedCities adjacents
+
 isStronglyConnected :: RoadMap -> Bool
-isStronglyConnected = undefined
+isStronglyConnected [] = True
+isStronglyConnected roadmap = allCities == Data.List.sort (connectedCities roadmap (head allCities) [])
+                                where allCities = cities roadmap
 
 -- Sets the source node with 0 distance
 sourceToZero :: RoadMapDijkstra -> City -> RoadMapDijkstra
