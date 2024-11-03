@@ -70,8 +70,8 @@ distance [] city1 city2 = Nothing
 -- Returns the cities adjacent to a particular city (i.e. cities with a direct edge between them) and the respective distances to them.
 adjacent :: RoadMap -> City -> [(City,Distance)]
 adjacent [] _ = []
-adjacent ((rmcity, rmcity2, rmdistance):xs) city | rmcity == city && areAdjacent ((rmcity, rmcity2, rmdistance):xs) rmcity rmcity2 = (rmcity2, rmdistance): adjacent xs city
-                                                 | rmcity2 == city && areAdjacent ((rmcity, rmcity2, rmdistance):xs) rmcity rmcity2 = (rmcity, rmdistance): adjacent xs city
+adjacent ((rmcity, rmcity2, rmdistance):xs) city | rmcity == city = (rmcity2, rmdistance): adjacent xs city
+                                                 | rmcity2 == city = (rmcity, rmdistance): adjacent xs city
                                                  | otherwise = adjacent xs city
 
 -- returns the sum of all individual distances in a path between two cities in a Just value, if all
