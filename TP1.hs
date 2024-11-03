@@ -288,10 +288,10 @@ gTest3 :: RoadMap -- unconnected graph
 gTest3 = [("0","1",4),("2","3",2)]
 
 gTest4 :: RoadMap -- graph with 3 different shortest paths with same distance   
-gTest4 = [("A", "B", 5), ("A", "C", 2), ("C", "D", 3),  -- Path A-C-D with distance 5
-          ("B", "D", 5),                                  -- Path A-B-D with distance 5
-          ("A", "E", 1), ("E", "F", 4), ("F", "D", 4),    -- Path A-E-F-D with distance 5
-          ("D", "G", 2), ("F", "G", 3)]
+gTest4 = [("0", "1", 5), ("0", "2", 2), ("2", "3", 3),  -- Path 0-2-3 with distance 5
+          ("1", "3", 5),                                  -- Path 0-1-3 with distance 5
+          ("0", "4", 1), ("4", "5", 4), ("5", "3", 4),    -- Path 0-4-5-3 with distance 5
+          ("3", "6", 2), ("5", "6", 3)]
 
 gTest5 :: RoadMap
 gTest5 = [("0", "1", 1), ("0", "2", 10), ("1", "2", 3), ("2", "3", 2), ("2", "4", 20), ("1", "3", 15), ("3", "4", 5), ("0", "4", 3)]
