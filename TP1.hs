@@ -250,10 +250,10 @@ tsp adjMatrix numCities =
                                         Nothing -> Nothing
                                         Just _ -> fmap (current :) (tspDP (visited Data.Bits..|. (1 `Data.Bits.shiftL` next)) next memo)
                                     | next <- unvisited ]
-                            minPath = foldl1 (flip min) (filter (/= Nothing) paths)
+                            minPath = foldr (\p acc -> maybe acc Just p) Nothing paths
                             newMemo = (visited, current, minPath) : memo
                         in minPath
-    in fmap reverse (tspDP 1 1 [])
+    in fmap reverse (tspDP 1 0 [])
 
 travelSales :: RoadMap -> Path
 travelSales roadmap =
