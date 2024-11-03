@@ -2,8 +2,8 @@
 {-# HLINT ignore "Eta reduce" #-}
 
 import qualified Data.List
---import qualified Data.Array
---import qualified Data.Bits
+import qualified Data.Array
+import qualified Data.Bits
 
 -- PFL 2024/2025 Practical assignment 1
 
@@ -23,6 +23,12 @@ Distance - Distance to arrive at node
 City - Previous Node
 
 -}
+
+-- Adjacency Matrix representation for TSP:
+
+type City' = Int
+type AdjMatrix = Data.Array.Array (Int, Int) (Maybe Distance)
+
 type DijkstraNode = (City, [(City, Distance)], Distance, City)
 
 -- List of DijkstraNodes that compose the RoadMap in a format to use with Dijkstra's Algorithm
@@ -55,6 +61,7 @@ areAdjacent [] _ _ = False
 areAdjacent ((rmcity,rmcity2,rmdistance):xs) city1 city2 | (rmcity == city1 && rmcity2 == city2) || (rmcity == city2 && rmcity2 == city1) = True
                                                          | otherwise = areAdjacent xs city1 city2
 
+-- Returns a Just value with the distance between two cities connected directly, given two city names, and Nothing otherwise.
 distance :: RoadMap -> City -> City -> Maybe Distance
 distance ((c1, c2, d):xs) city1 city2 | c1 == city1 && c2 == city2 = Just d
                                       | otherwise = distance xs city1 city2
@@ -67,6 +74,8 @@ adjacent ((rmcity, rmcity2, rmdistance):xs) city | rmcity == city && areAdjacent
                                                  | rmcity2 == city && areAdjacent ((rmcity, rmcity2, rmdistance):xs) rmcity rmcity2 = (rmcity, rmdistance): adjacent xs city
                                                  | otherwise = adjacent xs city
 
+-- returns the sum of all individual distances in a path between two cities in a Just value, if all
+-- the consecutive pairs of cities are directly connected by roads. Otherwise, it returns a Nothing.
 pathDistance :: RoadMap -> Path -> Maybe Distance
 pathDistance _ [] = Nothing
 pathDistance _ [_] = Just 0
@@ -101,6 +110,7 @@ connectedCities roadmap city visitedCities | city `elem` visitedCities = visited
                                                              adjacents = adjacent' roadmap city
                                                         in foldl (flip (connectedCities roadmap)) newVisitedCities adjacents
 
+-- Returns a boolean indicating whether all the cities in the graph are connected in the roadmap (i.e., if every city is reachable from every other city).
 isStronglyConnected :: RoadMap -> Bool
 isStronglyConnected [] = True
 isStronglyConnected roadmap = allCities == Data.List.sort (connectedCities roadmap (head allCities) [])
@@ -196,8 +206,73 @@ callDijkstra source roadmap = dijkstra (roadMapToRoadMapDijkstra roadmap source)
 shortestPath :: RoadMap -> City -> City -> [Path]
 shortestPath roadmap source destination = roadMapDijkstraToPaths (callDijkstra source roadmap) source destination
 
+-- Converts a standard [(City, City, Distance)] RoadMap into an Adjacency Matrix.
+roadMapToAdjMatrix :: RoadMap -> AdjMatrix
+roadMapToAdjMatrix roadmap =
+    let
+        maxIndex = length (cities roadmap) - 1
+
+        initialMatrix = Data.Array.array ((0, 0), (maxIndex, maxIndex)) [((i, j), Nothing) | i <- [0..maxIndex], j <- [0..maxIndex]]
+
+        adjMatrix = initialMatrix Data.Array.// ([((read c1 :: Int, read c2 :: Int), Just d) | (c1, c2, d) <- roadmap] ++ [((read c2 :: Int, read c1 :: Int), Just d) | (c1, c2, d) <- roadmap])
+    in adjMatrix
+
+-- Returns the distance between two connected cities in the adjacency matrix RoadMap
+getDistance' :: AdjMatrix -> City' -> City' -> Maybe Distance
+getDistance' adjmatrix city1 city2 = adjmatrix Data.Array.! (city1, city2)
+
+-- Helper function that returns Just the first element of a list, or Nothing if the list is empty.
+safeHead :: [a] -> Maybe a
+safeHead [] = Nothing
+safeHead (x:_) = Just x
+
+-- Helper function that converts a Maybe into a value.
+extractJust :: Maybe a -> a
+extractJust (Just x) = x
+extractJust Nothing = error "Attempted to extract Nothing"
+
+-- Given an adjacency matrix and the number of cities in the roadmap, returns the path representing
+-- the proposed solution to the Traveling Salesman Problem. If no solution is available, it returns Nothing.
+tsp :: AdjMatrix -> Int -> Maybe [City']
+tsp adjMatrix numCities = 
+    let
+        tspDP :: Int -> City' -> [(Int, City', Maybe [City'])] -> Maybe [City']
+        tspDP visited current memo
+            | visited == (1 `Data.Bits.shiftL` numCities) - 1 = case getDistance' adjMatrix current 0 of -- All cities visited
+                                                                    Nothing -> Nothing
+                                                                    Just _ -> Just [current, 0]
+            | otherwise =
+                -- Check memo table for a saved result
+                case lookup (visited, current) [((v, c), d) | (v, c, d) <- memo, v == visited, c == current] of
+                    Just result -> result
+                    Nothing ->
+                        let unvisited = [next | next <- [0..numCities-1], not (visited `Data.Bits.testBit` next)]
+                            paths = [ case getDistance' adjMatrix current next of
+                                        Nothing -> Nothing
+                                        Just dist -> fmap (\path -> (dist + totalPathDistance path, current : path))
+                                                 (tspDP (visited Data.Bits..|. (1 `Data.Bits.shiftL` next)) next memo)
+                                    | next <- unvisited ]
+                            validPaths = [path | Just path <- paths]
+                            sortedPaths = Data.List.sortOn fst validPaths
+                            minPath = fmap snd (safeHead sortedPaths)
+                            newMemo = (visited, current, minPath) : memo
+                        in minPath
+            where
+                totalPathDistance :: [City'] -> Distance -- this function calculates the total distance of a path
+                totalPathDistance path = sum [extractJust (getDistance' adjMatrix city1 city2) 
+                                  | (city1, city2) <- zip path (tail path)]
+    in fmap reverse (tspDP 1 0 [])
+
+-- Given a roadmap, returns a valid solution for the TSP, if there is one. Otherwise, an empty list is returned.
 travelSales :: RoadMap -> Path
-travelSales = undefined
+travelSales roadmap =
+    let
+        adjMatrix = roadMapToAdjMatrix roadmap
+        numCities = length (cities roadmap)
+        tspPath = case tsp adjMatrix numCities of
+            Nothing -> []
+            Just path -> map show path
+    in tspPath
 
 tspBruteForce :: RoadMap -> Path
 tspBruteForce = undefined -- only for groups of 3 people; groups of 2 people: do not edit this function
@@ -212,8 +287,11 @@ gTest2 = [("0","1",10),("0","2",15),("0","3",20),("1","2",35),("1","3",25),("2",
 gTest3 :: RoadMap -- unconnected graph
 gTest3 = [("0","1",4),("2","3",2)]
 
-gTest4 :: RoadMap -- graph with 3 different shortest paths with same distance
+gTest4 :: RoadMap -- graph with 3 different shortest paths with same distance   
 gTest4 = [("A", "B", 5), ("A", "C", 2), ("C", "D", 3),  -- Path A-C-D with distance 5
           ("B", "D", 5),                                  -- Path A-B-D with distance 5
           ("A", "E", 1), ("E", "F", 4), ("F", "D", 4),    -- Path A-E-F-D with distance 5
           ("D", "G", 2), ("F", "G", 3)]
+
+gTest5 :: RoadMap
+gTest5 = [("0", "1", 1), ("0", "2", 10), ("1", "2", 3), ("2", "3", 2), ("2", "4", 20), ("1", "3", 15), ("3", "4", 5), ("0", "4", 3)]
