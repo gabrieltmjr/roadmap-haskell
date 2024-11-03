@@ -215,23 +215,24 @@ roadMapToAdjMatrix roadmap =
         initialMatrix = Data.Array.array ((0, 0), (maxIndex, maxIndex)) [((i, j), Nothing) | i <- [0..maxIndex], j <- [0..maxIndex]]
 
         adjMatrix = initialMatrix Data.Array.// ([((read c1 :: Int, read c2 :: Int), Just d) | (c1, c2, d) <- roadmap] ++ [((read c2 :: Int, read c1 :: Int), Just d) | (c1, c2, d) <- roadmap])
-        -- adjMatrix = initialMatrix Data.Array.// [((read c1 :: Int, read c2 :: Int), Just d) | (c1, c2, d) <- roadmap]
     in adjMatrix
 
 -- Returns the distance between two connected cities in the adjacency matrix RoadMap
 getDistance' :: AdjMatrix -> City' -> City' -> Maybe Distance
 getDistance' adjmatrix city1 city2 = adjmatrix Data.Array.! (city1, city2)
 
--- 
-minimumMaybe :: [Maybe Distance] -> Maybe Distance
-minimumMaybe [] = Nothing
-minimumMaybe (x:xs) = case x of
-    Nothing -> minimumMaybe xs
-    Just val -> Just $ foldl (\acc y -> case y of
-                                                Nothing -> acc
-                                                Just d -> min acc d) val xs
+-- Helper function that returns Just the first element of a list, or Nothing if the list is empty.
+safeHead :: [a] -> Maybe a
+safeHead [] = Nothing
+safeHead (x:_) = Just x
 
--- 
+-- Helper function that converts a Maybe into a value.
+extractJust :: Maybe a -> a
+extractJust (Just x) = x
+extractJust Nothing = error "Attempted to extract Nothing"
+
+-- Given an adjacency matrix and the number of cities in the roadmap, returns the path representing
+-- the proposed solution to the Traveling Salesman Problem. If no solution is available, it returns Nothing.
 tsp :: AdjMatrix -> Int -> Maybe [City']
 tsp adjMatrix numCities = 
     let
@@ -248,13 +249,21 @@ tsp adjMatrix numCities =
                         let unvisited = [next | next <- [0..numCities-1], not (visited `Data.Bits.testBit` next)]
                             paths = [ case getDistance' adjMatrix current next of
                                         Nothing -> Nothing
-                                        Just _ -> fmap (current :) (tspDP (visited Data.Bits..|. (1 `Data.Bits.shiftL` next)) next memo)
+                                        Just dist -> fmap (\path -> (dist + totalPathDistance path, current : path))
+                                                 (tspDP (visited Data.Bits..|. (1 `Data.Bits.shiftL` next)) next memo)
                                     | next <- unvisited ]
-                            minPath = foldr (\p acc -> maybe acc Just p) Nothing paths
+                            validPaths = [path | Just path <- paths]
+                            sortedPaths = Data.List.sortOn fst validPaths
+                            minPath = fmap snd (safeHead sortedPaths)
                             newMemo = (visited, current, minPath) : memo
                         in minPath
+            where
+                totalPathDistance :: [City'] -> Distance -- this function calculates the total distance of a path
+                totalPathDistance path = sum [extractJust (getDistance' adjMatrix city1 city2) 
+                                  | (city1, city2) <- zip path (tail path)]
     in fmap reverse (tspDP 1 0 [])
 
+-- Given a roadmap, returns a valid solution for the TSP, if there is one. Otherwise, an empty list is returned.
 travelSales :: RoadMap -> Path
 travelSales roadmap =
     let
@@ -278,8 +287,11 @@ gTest2 = [("0","1",10),("0","2",15),("0","3",20),("1","2",35),("1","3",25),("2",
 gTest3 :: RoadMap -- unconnected graph
 gTest3 = [("0","1",4),("2","3",2)]
 
-gTest4 :: RoadMap -- graph with 3 different shortest paths with same distance
+gTest4 :: RoadMap -- graph with 3 different shortest paths with same distance   
 gTest4 = [("A", "B", 5), ("A", "C", 2), ("C", "D", 3),  -- Path A-C-D with distance 5
           ("B", "D", 5),                                  -- Path A-B-D with distance 5
           ("A", "E", 1), ("E", "F", 4), ("F", "D", 4),    -- Path A-E-F-D with distance 5
           ("D", "G", 2), ("F", "G", 3)]
+
+gTest5 :: RoadMap
+gTest5 = [("0", "1", 1), ("0", "2", 10), ("1", "2", 3), ("2", "3", 2), ("2", "4", 20), ("1", "3", 15), ("3", "4", 5), ("0", "4", 3)]
